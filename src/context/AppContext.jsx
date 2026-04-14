@@ -9,6 +9,12 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { generateStrategy } from "../services/ai-strategy";
 import {
+  getSwapQuote,
+  executeSwap,
+  signAndSendSwap,
+  MINTS,
+} from "../services/jupiter-swap";
+import {
   MOCK_ACTIVE_POSITIONS,
   RISK_PROFILES,
   generateMockTxHash,
@@ -35,10 +41,10 @@ function saveState(state) {
     /* ignore */
   }
 }
-
 export function AppProvider({ children }) {
   const saved = loadState();
-  const { publicKey, connected, disconnect } = useWallet();
+  const wallet = useWallet();
+  const { publicKey, connected, disconnect } = wallet;
   const { connection } = useConnection();
 
   const [tokens, setTokens] = useState([]);
@@ -218,6 +224,7 @@ export function AppProvider({ children }) {
     setSimulationSteps([]);
   }, []);
 
+  // ====== Simulate Function ======
   const simulate = useCallback(async () => {
     setIsSimulating(true);
     setSimulationSteps([]);
@@ -236,31 +243,97 @@ export function AppProvider({ children }) {
     }
   }, [tokens, allocation, riskProfile]);
 
+  // ===== Execute Function ======
+
   const execute = useCallback(async () => {
     if (simulationSteps.length === 0) return;
     setIsExecuting(true);
 
     for (let i = 0; i < simulationSteps.length; i++) {
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
-      const step = simulationSteps[i];
-      const txHash = generateMockTxHash();
-
       setSimulationSteps((prev) =>
-        prev.map((s, idx) =>
-          idx === i
-            ? { ...s, status: "complete", txHash }
-            : idx === i + 1
-              ? { ...s, status: "executing" }
-              : s,
-        ),
+        prev.map((s, idx) => (idx === i ? { ...s, status: "executing" } : s)),
       );
 
-      addLogEntry("execute", step.action, txHash);
+      const step = simulationSteps[i];
+      let txHash = null;
+
+      try {
+        // Try real swap for swap-type steps
+        if (
+          step.type === "swap" &&
+          step.api === "Swap V2" &&
+          publicKey &&
+          tokens.length > 0
+        ) {
+          const mainToken = tokens[0];
+          const swapAmountUsd = parseFloat(
+            step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
+          );
+
+          if (swapAmountUsd > 0 && mainToken.balance > 0) {
+            const swapAmountLamports = Math.floor(
+              (swapAmountUsd / mainToken.usdPrice) *
+                Math.pow(10, mainToken.decimals),
+            );
+
+            addLogEntry(
+              "system",
+              `Getting quote: ${mainToken.symbol} → USDC...`,
+            );
+
+            const quote = await getSwapQuote(
+              mainToken.mint,
+              MINTS.USDC,
+              swapAmountLamports,
+            );
+
+            addLogEntry("system", `Quote received. Executing swap...`);
+
+            const swapResult = await executeSwap(quote, publicKey);
+            txHash = await signAndSendSwap(swapResult, wallet, connection);
+
+            addLogEntry("execute", `Swap confirmed: ${step.action}`, txHash);
+          } else {
+            // Insufficient balance — simulate
+            await new Promise((r) => setTimeout(r, 1000));
+            txHash = generateMockTxHash();
+            addLogEntry(
+              "execute",
+              `${step.action} (simulated — insufficient balance)`,
+              txHash,
+            );
+          }
+        } else {
+          // Non-swap steps — simulate for now
+          await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
+          txHash = generateMockTxHash();
+          addLogEntry("execute", `${step.action} (simulated)`, txHash);
+        }
+
+        setSimulationSteps((prev) =>
+          prev.map((s, idx) =>
+            idx === i ? { ...s, status: "complete", txHash } : s,
+          ),
+        );
+      } catch (err) {
+        console.error(`Step ${i + 1} failed:`, err);
+        txHash = null;
+        addLogEntry("system", `Step ${i + 1} failed: ${err.message}`);
+
+        setSimulationSteps((prev) =>
+          prev.map((s, idx) => (idx === i ? { ...s, status: "failed" } : s)),
+        );
+      }
     }
 
     setIsExecuting(false);
     addLogEntry("system", "Strategy execution complete");
-  }, [simulationSteps]);
+
+    // Refresh token balances after execution
+    if (connected && publicKey) {
+      setTimeout(() => fetchTokens(), 3000);
+    }
+  }, [simulationSteps, publicKey, tokens, wallet, connection, connected]);
 
   function addLogEntry(type, message, txHash = null) {
     setExecutionLog((prev) =>
