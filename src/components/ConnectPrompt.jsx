@@ -58,9 +58,11 @@ export default function ConnectPrompt() {
         Connect Solflare Wallet
       </button>
 
-      <p className="mt-4 text-xs text-sentinel-muted">
-        Powered by QuickNode RPC — Kamino Vaults — DFlow Routing
-      </p>
+      <footer className="fixed bottom-0 left-0 w-full py-5 text-center border-t border-sentinel-border bg-sentinel-bg/80 backdrop-blur-xl">
+        <p className="text-xs text-sentinel-muted">
+          Powered by QuickNode RPC — Kamino Vaults — DFlow Routing
+        </p>
+      </footer>
     </div>
   );
 }

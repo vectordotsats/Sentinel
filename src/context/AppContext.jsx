@@ -7,10 +7,10 @@ import React, {
 } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { generateStrategy } from "../services/ai-strategy";
 import {
   MOCK_ACTIVE_POSITIONS,
   RISK_PROFILES,
-  generateSimulationSteps,
   generateMockTxHash,
 } from "../data/mockData";
 
@@ -221,14 +221,19 @@ export function AppProvider({ children }) {
   const simulate = useCallback(async () => {
     setIsSimulating(true);
     setSimulationSteps([]);
-    await new Promise((r) => setTimeout(r, 1200));
-    const steps = generateSimulationSteps(tokens, allocation, riskProfile);
-    setSimulationSteps(steps);
-    setIsSimulating(false);
-    addLogEntry(
-      "simulate",
-      `Simulation generated ${steps.length} steps for ${RISK_PROFILES[riskProfile].label} profile`,
-    );
+    try {
+      const steps = await generateStrategy(tokens, allocation, riskProfile, []);
+      setSimulationSteps(steps);
+      addLogEntry(
+        "simulate",
+        `AI generated ${steps.length} steps for ${RISK_PROFILES[riskProfile].label} profile`,
+      );
+    } catch (err) {
+      console.error("Simulation error:", err);
+      addLogEntry("system", `Simulation failed: ${err.message}`);
+    } finally {
+      setIsSimulating(false);
+    }
   }, [tokens, allocation, riskProfile]);
 
   const execute = useCallback(async () => {
