@@ -9,6 +9,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { generateStrategy } from "../services/ai-strategy";
 import { createTriggerOrder, getOpenOrders } from "../services/jupiter-trigger";
+import { createDCAOrder, DCA_FREQUENCY } from "../services/jupiter-dca";
 import {
   getSwapQuote,
   executeSwap,
@@ -356,6 +357,58 @@ export function AppProvider({ children }) {
               );
             } catch (err) {
               addLogEntry("system", `Trigger order simulated: ${err.message}`);
+              await new Promise((r) => setTimeout(r, 1000));
+              txHash = generateMockTxHash();
+              addLogEntry("execute", `${step.action} (simulated)`, txHash);
+            }
+          } else {
+            await new Promise((r) => setTimeout(r, 1000));
+            txHash = generateMockTxHash();
+            addLogEntry(
+              "execute",
+              `${step.action} (simulated — insufficient balance)`,
+              txHash,
+            );
+          }
+        } else if (
+          step.type === "order" &&
+          step.api === "Recurring" &&
+          publicKey &&
+          tokens.length > 0
+        ) {
+          const mainToken = tokens[0];
+          const dcaAmountUsd = parseFloat(
+            step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
+          );
+
+          if (dcaAmountUsd > 0 && mainToken.usdPrice > 0) {
+            const totalLamports = Math.floor(
+              (dcaAmountUsd / mainToken.usdPrice) *
+                Math.pow(10, mainToken.decimals),
+            );
+
+            addLogEntry(
+              "system",
+              `Creating DCA: USDC → ${mainToken.symbol} weekly over 4 weeks...`,
+            );
+
+            try {
+              const dcaResult = await createDCAOrder(
+                MINTS.USDC,
+                mainToken.mint,
+                totalLamports,
+                DCA_FREQUENCY.WEEKLY,
+                4,
+                publicKey,
+              );
+              txHash = await signAndSendSwap(dcaResult, wallet, connection);
+              addLogEntry(
+                "execute",
+                `DCA order created: ${step.action}`,
+                txHash,
+              );
+            } catch (err) {
+              addLogEntry("system", `DCA simulated: ${err.message}`);
               await new Promise((r) => setTimeout(r, 1000));
               txHash = generateMockTxHash();
               addLogEntry("execute", `${step.action} (simulated)`, txHash);
