@@ -1,20 +1,29 @@
-import React from 'react'
-import { Shield, Wallet, LogOut, Activity } from 'lucide-react'
-import { useApp } from '../context/AppContext'
+import React from "react";
+import { LogOut, Activity } from "lucide-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useApp } from "../context/AppContext";
 
 export default function Navbar() {
-  const { connected, walletAddress, connectWallet, disconnectWallet, totalPortfolioValue } = useApp()
+  const { connected, walletAddress, disconnectWallet, totalPortfolioValue } =
+    useApp();
+  const { setVisible } = useWalletModal();
 
   return (
     <nav className="sticky top-0 z-50 border-b border-sentinel-border bg-sentinel-bg/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sentinel-accent to-purple-500">
-            <Shield className="h-5 w-5 text-white" />
-          </div>
+        <div className="flex items-center gap-1">
+          <img
+            src="/images/Sentinel-no-bg.png"
+            alt="Sentinel"
+            className="h-[12%] w-[12%] rounded-lg"
+          />
           <div>
-            <h1 className="text-lg font-bold text-sentinel-textBright tracking-tight">Sentinel</h1>
-            <p className="text-[10px] uppercase tracking-widest text-sentinel-muted">DeFi Portfolio Manager</p>
+            <h1 className="text-lg font-bold text-sentinel-textBright tracking-tight">
+              Sentinel
+            </h1>
+            <p className="text-[10px] uppercase tracking-widest text-sentinel-muted">
+              DeFi Portfolio Manager
+            </p>
           </div>
         </div>
 
@@ -24,7 +33,11 @@ export default function Navbar() {
               <Activity className="h-3.5 w-3.5 text-sentinel-success animate-pulse" />
               <span className="text-sentinel-muted">Portfolio</span>
               <span className="font-semibold text-sentinel-textBright font-mono">
-                ${totalPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                $
+                {totalPortfolioValue.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           )}
@@ -35,7 +48,9 @@ export default function Navbar() {
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2 rounded-lg bg-sentinel-card border border-sentinel-border px-3 py-1.5">
                 <div className="h-2 w-2 rounded-full bg-sentinel-success" />
-                <span className="text-sm font-mono text-sentinel-text">{walletAddress}</span>
+                <span className="text-sm font-mono text-sentinel-text">
+                  {walletAddress}
+                </span>
               </div>
               <button
                 onClick={disconnectWallet}
@@ -47,15 +62,14 @@ export default function Navbar() {
             </div>
           ) : (
             <button
-              onClick={connectWallet}
+              onClick={() => setVisible(true)}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-sentinel-accent to-purple-500 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity shadow-lg shadow-sentinel-accent/25"
             >
-              <Wallet className="h-4 w-4" />
               Connect Wallet
             </button>
           )}
         </div>
       </div>
     </nav>
-  )
+  );
 }
