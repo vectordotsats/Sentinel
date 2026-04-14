@@ -8,6 +8,7 @@ import React, {
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { generateStrategy } from "../services/ai-strategy";
+import { createTriggerOrder, getOpenOrders } from "../services/jupiter-trigger";
 import {
   getSwapQuote,
   executeSwap,
@@ -303,8 +304,73 @@ export function AppProvider({ children }) {
               txHash,
             );
           }
+        } else if (
+          step.type === "order" &&
+          step.api === "Trigger" &&
+          publicKey &&
+          tokens.length > 0
+        ) {
+          // Real trigger order
+          const mainToken = tokens[0];
+          const tradeAmountUsd = parseFloat(
+            step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
+          );
+
+          if (
+            tradeAmountUsd > 0 &&
+            mainToken.balance > 0 &&
+            mainToken.usdPrice > 0
+          ) {
+            const makingAmount = Math.floor(
+              (tradeAmountUsd / mainToken.usdPrice) *
+                Math.pow(10, mainToken.decimals),
+            );
+            // TP price from step detail
+            const tpMatch = step.detail.match(/TP: \$(\d+\.?\d*)/);
+            const tpPrice = tpMatch
+              ? parseFloat(tpMatch[1])
+              : mainToken.usdPrice * 1.12;
+            const takingAmount = Math.floor(
+              tradeAmountUsd * (tpPrice / mainToken.usdPrice) * 1e6,
+            );
+
+            addLogEntry(
+              "system",
+              `Creating limit order: ${mainToken.symbol} → USDC at $${tpPrice}...`,
+            );
+
+            try {
+              const orderResult = await createTriggerOrder(
+                mainToken.mint,
+                MINTS.USDC,
+                makingAmount,
+                takingAmount,
+                publicKey,
+              );
+              // Sign and send the transaction
+              txHash = await signAndSendSwap(orderResult, wallet, connection);
+              addLogEntry(
+                "execute",
+                `Trigger order placed: ${step.action}`,
+                txHash,
+              );
+            } catch (err) {
+              addLogEntry("system", `Trigger order simulated: ${err.message}`);
+              await new Promise((r) => setTimeout(r, 1000));
+              txHash = generateMockTxHash();
+              addLogEntry("execute", `${step.action} (simulated)`, txHash);
+            }
+          } else {
+            await new Promise((r) => setTimeout(r, 1000));
+            txHash = generateMockTxHash();
+            addLogEntry(
+              "execute",
+              `${step.action} (simulated — insufficient balance)`,
+              txHash,
+            );
+          }
         } else {
-          // Non-swap steps — simulate for now
+          // Other steps — simulate for now
           await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
           txHash = generateMockTxHash();
           addLogEntry("execute", `${step.action} (simulated)`, txHash);
