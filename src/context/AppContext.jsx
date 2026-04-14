@@ -11,6 +11,10 @@ import { generateStrategy } from "../services/ai-strategy";
 import { createTriggerOrder, getOpenOrders } from "../services/jupiter-trigger";
 import { createDCAOrder, DCA_FREQUENCY } from "../services/jupiter-dca";
 import {
+  openPerpPosition,
+  placePredictionBet,
+} from "../services/jupiter-perps";
+import {
   getSwapQuote,
   executeSwap,
   signAndSendSwap,
@@ -421,6 +425,79 @@ export function AppProvider({ children }) {
               `${step.action} (simulated — insufficient balance)`,
               txHash,
             );
+          }
+        } else if (
+          step.type === "hedge" &&
+          step.api === "Prediction Markets" &&
+          publicKey
+        ) {
+          const betAmount = parseFloat(
+            step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
+          );
+
+          if (betAmount > 0) {
+            addLogEntry("system", `Placing prediction market hedge...`);
+            try {
+              const mainToken = tokens[0]?.symbol || "SOL";
+              const result = await placePredictionBet(
+                `${mainToken}-downside`,
+                "NO",
+                Math.floor(betAmount * 1e6),
+                publicKey,
+              );
+              txHash = await signAndSendSwap(result, wallet, connection);
+              addLogEntry(
+                "execute",
+                `Prediction hedge placed: ${step.action}`,
+                txHash,
+              );
+            } catch (err) {
+              addLogEntry(
+                "system",
+                `Prediction market simulated: ${err.message}`,
+              );
+              await new Promise((r) => setTimeout(r, 1000));
+              txHash = generateMockTxHash();
+              addLogEntry("execute", `${step.action} (simulated)`, txHash);
+            }
+          } else {
+            await new Promise((r) => setTimeout(r, 1000));
+            txHash = generateMockTxHash();
+            addLogEntry("execute", `${step.action} (simulated)`, txHash);
+          }
+        } else if (step.type === "hedge" && step.api === "Perps" && publicKey) {
+          const perpAmount = parseFloat(
+            step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
+          );
+          const leverageMatch = step.action.match(/(\d+\.?\d*)x/);
+          const leverage = leverageMatch ? parseFloat(leverageMatch[1]) : 2;
+
+          if (perpAmount > 0) {
+            addLogEntry("system", `Opening ${leverage}x short hedge...`);
+            try {
+              const result = await openPerpPosition(
+                "SOL-PERP",
+                "short",
+                Math.floor(perpAmount * 1e6),
+                leverage,
+                publicKey,
+              );
+              txHash = await signAndSendSwap(result, wallet, connection);
+              addLogEntry(
+                "execute",
+                `Perp position opened: ${step.action}`,
+                txHash,
+              );
+            } catch (err) {
+              addLogEntry("system", `Perp position simulated: ${err.message}`);
+              await new Promise((r) => setTimeout(r, 1000));
+              txHash = generateMockTxHash();
+              addLogEntry("execute", `${step.action} (simulated)`, txHash);
+            }
+          } else {
+            await new Promise((r) => setTimeout(r, 1000));
+            txHash = generateMockTxHash();
+            addLogEntry("execute", `${step.action} (simulated)`, txHash);
           }
         } else {
           // Other steps — simulate for now
