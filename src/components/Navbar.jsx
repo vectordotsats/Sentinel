@@ -18,7 +18,7 @@ export default function Navbar() {
             className="h-[12%] w-[12%] rounded-lg"
           />
           <div>
-            <h1 className="text-lg font-bold text-sentinel-textBright tracking-tight">
+            <h1 className="text-lg font-bold text-sentinel-textBright tracking-tight uppercase tracking-widest">
               Sentinel
             </h1>
             <p className="text-[10px] uppercase tracking-widest text-sentinel-muted">
