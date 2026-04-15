@@ -11,11 +11,11 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-sentinel-border bg-sentinel-bg/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <img
-            src="/images/Sentinel-no-bg.png"
+            src="/images/Sentinel-logo.png"
             alt="Sentinel"
-            className="h-[12%] w-[12%] rounded-lg"
+            className="h-[7%] w-[7%] rounded-lg"
           />
           <div>
             <h1 className="text-lg font-bold text-sentinel-textBright tracking-tight uppercase tracking-widest">
