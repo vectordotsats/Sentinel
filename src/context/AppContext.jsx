@@ -137,9 +137,10 @@ export function AppProvider({ children }) {
 
       // Fetch prices from Jupiter Price API
       const mints = walletTokens.map((t) => t.mint).join(",");
-      const priceRes = await fetch(`https://api.jup.ag/price/v2?ids=${mints}`, {
-        headers: { "x-api-key": import.meta.env.VITE_JUPITER_API_KEY },
-      });
+      const priceUrl = import.meta.env.DEV
+        ? `https://api.jup.ag/price/v2?ids=${mints}`
+        : `/api/jup-price/?ids=${mints}`;
+      const priceRes = await fetch(priceUrl);
       const priceData = await priceRes.json();
 
       // Fetch token metadata from Jupiter for symbol/name
@@ -150,12 +151,10 @@ export function AppProvider({ children }) {
         // Get metadata for non-SOL tokens
         if (token.mint !== "So11111111111111111111111111111111111111112") {
           try {
-            const metaRes = await fetch(
-              `https://api.jup.ag/tokens/v1/token/${token.mint}`,
-              {
-                headers: { "x-api-key": import.meta.env.VITE_JUPITER_API_KEY },
-              },
-            );
+            const metaUrl = import.meta.env.DEV
+              ? `https://api.jup.ag/tokens/v1/token/${token.mint}`
+              : `/api/jup-tokens/token/${token.mint}`;
+            const metaRes = await fetch(metaUrl);
             if (metaRes.ok) {
               const meta = await metaRes.json();
               token.symbol = meta.symbol || token.symbol;
