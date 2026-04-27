@@ -137,22 +137,36 @@ export function AppProvider({ children }) {
 
       // Fetch prices from Jupiter Price API
       const mints = walletTokens.map((t) => t.mint).join(",");
-      const priceRes = await fetch(`/api/jup-price?ids=${mints}`);
+      // const priceRes = await fetch(`/api/jup-price?ids=${mints}`);
+      const priceUrl = import.meta.env.DEV
+        ? `/api/jup-price?ids=${mints}`
+        : `/.netlify/functions/jup-price?ids=${mints}`;
+      const priceRes = await fetch(priceUrl);
       const priceData = await priceRes.json();
+      console.log("Price data:", JSON.stringify(priceData));
 
       // Fetch token metadata from Jupiter for symbol/name
       for (const token of walletTokens) {
-        if (priceData.data?.[token.mint]) {
-          token.usdPrice = parseFloat(priceData.data[token.mint].price);
+        if (priceData[token.mint]) {
+          token.usdPrice = parseFloat(priceData[token.mint].usdPrice);
         }
         // Get metadata for non-SOL tokens
         if (token.mint !== "So11111111111111111111111111111111111111112") {
           try {
-            const metaRes = await fetch(`/api/jup-tokens/token/${token.mint}`);
+            // const metaRes = await fetch(
+            //   `/api/jup-tokens/search?query=${token.mint}`,
+            // );
+            const metaUrl = import.meta.env.DEV
+              ? `/api/jup-tokens/search?query=${token.mint}`
+              : `/.netlify/functions/jup-tokens?query=${token.mint}`;
+            const metaRes = await fetch(metaUrl);
             if (metaRes.ok) {
               const meta = await metaRes.json();
-              token.symbol = meta.symbol || token.symbol;
-              token.name = meta.name || token.name;
+              if (Array.isArray(meta) && meta.length > 0) {
+                token.symbol = meta[0].symbol || token.symbol;
+                token.name = meta[0].name || token.name;
+                token.icon = meta[0].icon || token.icon;
+              }
             }
           } catch {
             /* keep defaults */
@@ -160,10 +174,10 @@ export function AppProvider({ children }) {
         }
       }
 
-      if (priceData.data?.["So11111111111111111111111111111111111111112"]) {
+      if (priceData["So11111111111111111111111111111111111111112"]) {
         setSolPrice(
           parseFloat(
-            priceData.data["So11111111111111111111111111111111111111112"].price,
+            priceData["So11111111111111111111111111111111111111112"].usdPrice,
           ),
         );
       }
