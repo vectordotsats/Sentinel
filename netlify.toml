@@ -2,19 +2,4 @@
   command = "npm run build"
   publish = "dist"
 
-[[redirects]]
-  from = "/api/jup-price/*"
-  to = "https://api.jup.ag/price/v2/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/jup-tokens/*"
-  to = "https://api.jup.ag/tokens/v1/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+  

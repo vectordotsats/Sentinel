@@ -1,0 +1,2 @@
+/api/jup-price https://api.jup.ag/price/v2 200
+/api/jup-tokens/* https://api.jup.ag/tokens/v1/:splat 200

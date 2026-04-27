@@ -137,7 +137,7 @@ export function AppProvider({ children }) {
 
       // Fetch prices from Jupiter Price API
       const mints = walletTokens.map((t) => t.mint).join(",");
-      const priceRes = await fetch(`/api/jup-price/?ids=${mints}`);
+      const priceRes = await fetch(`/api/jup-price?ids=${mints}`);
       const priceData = await priceRes.json();
 
       // Fetch token metadata from Jupiter for symbol/name
