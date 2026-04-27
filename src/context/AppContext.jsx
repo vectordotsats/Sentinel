@@ -14,12 +14,7 @@ import {
   openPerpPosition,
   placePredictionBet,
 } from "../services/jupiter-perps";
-import {
-  getSwapQuote,
-  executeSwap,
-  signAndSendSwap,
-  MINTS,
-} from "../services/jupiter-swap";
+import { getSwapOrder, signAndSendSwap, MINTS } from "../services/jupiter-swap";
 import {
   MOCK_ACTIVE_POSITIONS,
   RISK_PROFILES,
@@ -143,7 +138,7 @@ export function AppProvider({ children }) {
         : `/.netlify/functions/jup-price?ids=${mints}`;
       const priceRes = await fetch(priceUrl);
       const priceData = await priceRes.json();
-      console.log("Price data:", JSON.stringify(priceData));
+      // console.log("Price data:", JSON.stringify(priceData));
 
       // Fetch token metadata from Jupiter for symbol/name
       for (const token of walletTokens) {
@@ -268,6 +263,7 @@ export function AppProvider({ children }) {
       );
 
       const step = simulationSteps[i];
+      console.log("Step:", JSON.stringify(step));
       let txHash = null;
 
       try {
@@ -291,19 +287,19 @@ export function AppProvider({ children }) {
 
             addLogEntry(
               "system",
-              `Getting quote: ${mainToken.symbol} → USDC...`,
+              `Getting swap order: ${mainToken.symbol} → USDC...`,
             );
 
-            const quote = await getSwapQuote(
+            const order = await getSwapOrder(
               mainToken.mint,
               MINTS.USDC,
               swapAmountLamports,
+              publicKey.toBase58(),
             );
 
-            addLogEntry("system", `Quote received. Executing swap...`);
+            addLogEntry("system", `Order received. Signing transaction...`);
 
-            const swapResult = await executeSwap(quote, publicKey);
-            txHash = await signAndSendSwap(swapResult, wallet, connection);
+            txHash = await signAndSendSwap(order, wallet, connection);
 
             addLogEntry("execute", `Swap confirmed: ${step.action}`, txHash);
           } else {
