@@ -160,7 +160,7 @@ export function AppProvider({ children }) {
               if (Array.isArray(meta) && meta.length > 0) {
                 token.symbol = meta[0].symbol || token.symbol;
                 token.name = meta[0].name || token.name;
-                token.icon = meta[0].icon || token.icon;
+                // token.icon = meta[0].icon || token.icon;
               }
             }
           } catch {
