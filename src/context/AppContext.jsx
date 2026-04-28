@@ -8,7 +8,6 @@ import React, {
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { generateStrategy } from "../services/ai-strategy";
-import { createTriggerOrder, getOpenOrders } from "../services/jupiter-trigger";
 import { createDCAOrder, DCA_FREQUENCY } from "../services/jupiter-dca";
 import {
   openPerpPosition,
@@ -318,7 +317,6 @@ export function AppProvider({ children }) {
           publicKey &&
           tokens.length > 0
         ) {
-          // Real trigger order
           const mainToken = tokens[0];
           const tradeAmountUsd = parseFloat(
             step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
@@ -329,37 +327,50 @@ export function AppProvider({ children }) {
             mainToken.balance > 0 &&
             mainToken.usdPrice > 0
           ) {
-            const makingAmount = Math.floor(
+            const tradeAmount = Math.floor(
               (tradeAmountUsd / mainToken.usdPrice) *
                 Math.pow(10, mainToken.decimals),
             );
-            // TP price from step detail
+
             const tpMatch = step.detail.match(/TP: \$(\d+\.?\d*)/);
+            const slMatch = step.detail.match(/SL: \$(\d+\.?\d*)/);
             const tpPrice = tpMatch
               ? parseFloat(tpMatch[1])
               : mainToken.usdPrice * 1.12;
-            const takingAmount = Math.floor(
-              tradeAmountUsd * (tpPrice / mainToken.usdPrice) * 1e6,
-            );
+            const slPrice = slMatch
+              ? parseFloat(slMatch[1])
+              : mainToken.usdPrice * 0.95;
 
-            addLogEntry(
-              "system",
-              `Creating limit order: ${mainToken.symbol} → USDC at $${tpPrice}...`,
-            );
+            addLogEntry("system", `Authenticating with Trigger API...`);
 
             try {
-              const orderResult = await createTriggerOrder(
-                mainToken.mint,
-                MINTS.USDC,
-                makingAmount,
-                takingAmount,
-                publicKey,
+              const { createTriggerOrder } =
+                await import("../services/jupiter-trigger");
+
+              addLogEntry(
+                "system",
+                `Creating OCO order: TP $${tpPrice.toFixed(2)} / SL $${slPrice.toFixed(2)}...`,
               );
-              // Sign and send the transaction
-              txHash = await signAndSendSwap(orderResult, wallet, connection);
+
+              const order = await createTriggerOrder(
+                wallet,
+                publicKey,
+                connection,
+                {
+                  inputMint: mainToken.mint,
+                  outputMint: MINTS.USDC,
+                  amount: tradeAmount,
+                  triggerMint: mainToken.mint,
+                  orderType: "oco",
+                  tpPrice,
+                  slPrice,
+                },
+              );
+
+              txHash = order.txSignature || order.id;
               addLogEntry(
                 "execute",
-                `Trigger order placed: ${step.action}`,
+                `OCO order created: TP $${tpPrice.toFixed(2)} / SL $${slPrice.toFixed(2)}`,
                 txHash,
               );
             } catch (err) {

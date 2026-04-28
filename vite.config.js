@@ -32,6 +32,14 @@ export default defineConfig(({ mode }) => {
             'x-api-key': env.VITE_JUPITER_API_KEY,
           },
         },
+        '/api/jup-trigger': {
+          target: 'https://api.jup.ag',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/jup-trigger/, '/trigger/v2'),
+          headers: {
+            'x-api-key': env.VITE_JUPITER_API_KEY,
+          },
+        },
       },
     },
   }
