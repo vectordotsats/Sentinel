@@ -8,7 +8,6 @@ import React, {
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { generateStrategy } from "../services/ai-strategy";
-import { createDCAOrder, DCA_FREQUENCY } from "../services/jupiter-dca";
 import {
   openPerpPosition,
   placePredictionBet,
@@ -400,7 +399,7 @@ export function AppProvider({ children }) {
           );
 
           if (dcaAmountUsd > 0 && mainToken.usdPrice > 0) {
-            const totalLamports = Math.floor(
+            const totalAmount = Math.floor(
               (dcaAmountUsd / mainToken.usdPrice) *
                 Math.pow(10, mainToken.decimals),
             );
@@ -411,15 +410,17 @@ export function AppProvider({ children }) {
             );
 
             try {
-              const dcaResult = await createDCAOrder(
-                MINTS.USDC,
-                mainToken.mint,
-                totalLamports,
-                DCA_FREQUENCY.WEEKLY,
-                4,
-                publicKey,
-              );
-              txHash = await signAndSendSwap(dcaResult, wallet, connection);
+              const { createDCAOrder } =
+                await import("../services/jupiter-dca");
+
+              txHash = await createDCAOrder(wallet, publicKey, connection, {
+                inputMint: MINTS.USDC,
+                outputMint: mainToken.mint,
+                amount: totalAmount,
+                numberOfOrders: 4,
+                interval: 604800,
+              });
+
               addLogEntry(
                 "execute",
                 `DCA order created: ${step.action}`,

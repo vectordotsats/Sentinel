@@ -40,6 +40,22 @@ export default defineConfig(({ mode }) => {
             'x-api-key': env.VITE_JUPITER_API_KEY,
           },
         },
+        '/api/jup-recurring': {
+          target: 'https://api.jup.ag',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/jup-recurring/, '/recurring/v1'),
+          headers: {
+            'x-api-key': env.VITE_JUPITER_API_KEY,
+          },
+        },
+        '/api/jup-prediction': {
+          target: 'https://api.jup.ag',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/jup-prediction/, '/prediction/v1'),
+          headers: {
+            'x-api-key': env.VITE_JUPITER_API_KEY,
+          },
+        },
       },
     },
   }

@@ -1,61 +1,71 @@
-const JUP_API = 'https://api.jup.ag'
-const API_KEY = import.meta.env.VITE_JUPITER_API_KEY
+import { Buffer } from 'buffer'
 
-export async function getPerpMarkets() {
-  const res = await fetch(`${JUP_API}/perps/v1/markets`, {
-    headers: { 'x-api-key': API_KEY }
-  })
-  if (!res.ok) throw new Error('Failed to fetch perp markets')
+// ===== PREDICTION MARKETS =====
+
+export async function getPredictionEvents(category) {
+  const url = category 
+    ? `/api/jup-prediction/events?category=${category}`
+    : `/api/jup-prediction/events`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`)
   return await res.json()
 }
 
-export async function openPerpPosition(market, side, size, leverage, userPublicKey) {
-  const res = await fetch(`${JUP_API}/perps/v1/openPosition`, {
+export async function placePredictionBet(wallet, publicKey, connection, params) {
+  const { VersionedTransaction } = await import('@solana/web3.js')
+
+  // Step 1: Create buy order
+  const res = await fetch('/api/jup-prediction/orders', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      market,
-      side,
-      size: size.toString(),
-      leverage: leverage.toString(),
-      maker: userPublicKey.toBase58(),
+      ownerPubkey: publicKey.toBase58(),
+      marketId: params.marketId,
+      isYes: params.isYes,
+      isBuy: true,
+      depositAmount: params.amount.toString(),
+      depositMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
     }),
   })
+
   if (!res.ok) {
     const err = await res.text()
-    throw new Error(`Open perp failed: ${err}`)
+    throw new Error(`Prediction order failed: ${err}`)
   }
-  return await res.json()
+
+  const orderData = await res.json()
+
+  // Step 2: Sign transaction
+  const tx = VersionedTransaction.deserialize(
+    Buffer.from(orderData.transaction, 'base64')
+  )
+  const signedTx = await wallet.signTransaction(tx)
+
+  // Step 3: Send to network
+  const rawTransaction = signedTx.serialize()
+  const txid = await connection.sendRawTransaction(rawTransaction, {
+    skipPreflight: true,
+    maxRetries: 2,
+  })
+
+  const latestBlockhash = await connection.getLatestBlockhash()
+  await connection.confirmTransaction({
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    signature: txid,
+  })
+
+  return {
+    txid,
+    orderPubkey: orderData.order?.orderPubkey,
+    positionPubkey: orderData.order?.positionPubkey,
+  }
 }
 
-export async function getPredictionMarkets(query) {
-  const res = await fetch(`${JUP_API}/prediction/v1/markets?q=${encodeURIComponent(query || '')}`, {
-    headers: { 'x-api-key': API_KEY }
-  })
-  if (!res.ok) throw new Error('Failed to fetch prediction markets')
-  return await res.json()
-}
+// ===== PERPS =====
 
-export async function placePredictionBet(marketId, outcome, amount, userPublicKey) {
-  const res = await fetch(`${JUP_API}/prediction/v1/place`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-    },
-    body: JSON.stringify({
-      marketId,
-      outcome,
-      amount: amount.toString(),
-      maker: userPublicKey.toBase58(),
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Prediction bet failed: ${err}`)
-  }
-  return await res.json()
+export async function openPerpPosition(wallet, publicKey, connection, params) {
+  // Perps API is CORS-blocked from browser
+  // Documented as feedback in DX report
+  throw new Error('Perps REST API is CORS-blocked from browser. Requires server-side proxy or program-level integration.')
 }
