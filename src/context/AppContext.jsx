@@ -9,11 +9,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { generateStrategy } from "../services/ai-strategy";
 import { getSwapOrder, signAndSendSwap, MINTS } from "../services/jupiter-swap";
-import {
-  MOCK_ACTIVE_POSITIONS,
-  RISK_PROFILES,
-  generateMockTxHash,
-} from "../data/mockData";
+import { RISK_PROFILES } from "../data/mockData";
 
 const AppContext = createContext(null);
 
@@ -299,11 +295,10 @@ export function AppProvider({ children }) {
           } else {
             // Insufficient balance — simulate
             await new Promise((r) => setTimeout(r, 1000));
-            txHash = generateMockTxHash();
+            txHash = null;
             addLogEntry(
               "execute",
-              `${step.action} (simulated — insufficient balance)`,
-              txHash,
+              `${step.action} — skipped (insufficient balance)`,
             );
           }
         } else if (
@@ -371,16 +366,18 @@ export function AppProvider({ children }) {
             } catch (err) {
               addLogEntry("system", `Trigger order simulated: ${err.message}`);
               await new Promise((r) => setTimeout(r, 1000));
-              txHash = generateMockTxHash();
-              addLogEntry("execute", `${step.action} (simulated)`, txHash);
+              txHash = null;
+              addLogEntry(
+                "execute",
+                `${step.action} — skipped (API unavailable)`,
+              );
             }
           } else {
             await new Promise((r) => setTimeout(r, 1000));
-            txHash = generateMockTxHash();
+            txHash = null;
             addLogEntry(
               "execute",
-              `${step.action} (simulated — insufficient balance)`,
-              txHash,
+              `${step.action} — skipped (API unavailable)`,
             );
           }
         } else if (
@@ -425,17 +422,13 @@ export function AppProvider({ children }) {
             } catch (err) {
               addLogEntry("system", `DCA simulated: ${err.message}`);
               await new Promise((r) => setTimeout(r, 1000));
-              txHash = generateMockTxHash();
-              addLogEntry("execute", `${step.action} (simulated)`, txHash);
+              addLogEntry("system", `${step.action} — failed: ${err.message}`);
+              txHash = null;
             }
           } else {
             await new Promise((r) => setTimeout(r, 1000));
-            txHash = generateMockTxHash();
-            addLogEntry(
-              "execute",
-              `${step.action} (simulated — insufficient balance)`,
-              txHash,
-            );
+            addLogEntry("system", `${step.action} — failed: ${err.message}`);
+            txHash = null;
           }
         } else if (
           step.type === "hedge" &&
@@ -513,11 +506,10 @@ export function AppProvider({ children }) {
               } else {
                 addLogEntry("system", `No open prediction markets found`);
                 await new Promise((r) => setTimeout(r, 1000));
-                txHash = generateMockTxHash();
+                txHash = null;
                 addLogEntry(
                   "execute",
-                  `${step.action} (simulated — no markets)`,
-                  txHash,
+                  `${step.action} — skipped (no open markets found)`,
                 );
               }
             } catch (err) {
@@ -526,13 +518,19 @@ export function AppProvider({ children }) {
                 `Prediction market simulated: ${err.message}`,
               );
               await new Promise((r) => setTimeout(r, 1000));
-              txHash = generateMockTxHash();
-              addLogEntry("execute", `${step.action} (simulated)`, txHash);
+              txHash = null;
+              addLogEntry(
+                "execute",
+                `${step.action} — skipped (no open markets found)`,
+              );
             }
           } else {
             await new Promise((r) => setTimeout(r, 1000));
-            txHash = generateMockTxHash();
-            addLogEntry("execute", `${step.action} (simulated)`, txHash);
+            txHash = null;
+            addLogEntry(
+              "execute",
+              `${step.action} — skipped (no open markets found)`,
+            );
           }
         } else if (step.type === "hedge" && step.api === "Perps" && publicKey) {
           addLogEntry(
@@ -540,22 +538,26 @@ export function AppProvider({ children }) {
             `Perps API requires server-side integration (CORS-blocked / WIP)`,
           );
           await new Promise((r) => setTimeout(r, 1000));
-          txHash = generateMockTxHash();
+          txHash = null;
           addLogEntry(
             "execute",
-            `${step.action} (simulated — API WIP)`,
-            txHash,
+            `${step.action} — skipped (API work in progress)`,
           );
         } else {
           // Other steps — simulate for now
           await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
-          txHash = generateMockTxHash();
-          addLogEntry("execute", `${step.action} (simulated)`, txHash);
+          txHash = null;
+          addLogEntry(
+            "execute",
+            `${step.action} — skipped (API work in progress)`,
+          );
         }
 
         setSimulationSteps((prev) =>
           prev.map((s, idx) =>
-            idx === i ? { ...s, status: "complete", txHash } : s,
+            idx === i
+              ? { ...s, status: txHash ? "complete" : "skipped", txHash }
+              : s,
           ),
         );
       } catch (err) {
