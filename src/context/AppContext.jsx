@@ -8,10 +8,6 @@ import React, {
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { generateStrategy } from "../services/ai-strategy";
-import {
-  openPerpPosition,
-  placePredictionBet,
-} from "../services/jupiter-perps";
 import { getSwapOrder, signAndSendSwap, MINTS } from "../services/jupiter-swap";
 import {
   MOCK_ACTIVE_POSITIONS,
@@ -261,7 +257,7 @@ export function AppProvider({ children }) {
       );
 
       const step = simulationSteps[i];
-      console.log("Step:", JSON.stringify(step));
+      // console.log("Step:", JSON.stringify(step));
       let txHash = null;
 
       try {
@@ -449,23 +445,81 @@ export function AppProvider({ children }) {
           const betAmount = parseFloat(
             step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
           );
+          console.log("ENTERING PREDICTION BLOCK");
+          console.log("betAmount:", betAmount);
 
           if (betAmount > 0) {
-            addLogEntry("system", `Placing prediction market hedge...`);
+            console.log("About to fetch prediction events");
+            addLogEntry("system", "Fetching prediction markets...");
             try {
-              const mainToken = tokens[0]?.symbol || "SOL";
-              const result = await placePredictionBet(
-                `${mainToken}-downside`,
-                "NO",
-                Math.floor(betAmount * 1e6),
-                publicKey,
+              console.log("Importing prediction service");
+              const { getPredictionEvents, placePredictionBet } =
+                await import("../services/jupiter-perps");
+              console.log("Import success, fetching events");
+              const eventsResponse = await getPredictionEvents("crypto");
+              const events = eventsResponse.data || eventsResponse;
+              console.log(
+                "Events count:",
+                Array.isArray(events) ? events.length : 0,
               );
-              txHash = await signAndSendSwap(result, wallet, connection);
-              addLogEntry(
-                "execute",
-                `Prediction hedge placed: ${step.action}`,
-                txHash,
-              );
+              let marketId = null;
+              let marketTitle = "";
+
+              if (Array.isArray(events) && events.length > 0) {
+                for (const event of events) {
+                  if (event.markets && event.markets.length > 0) {
+                    const openMarket = event.markets.find(
+                      (m) => m.status === "open" || m.isActive,
+                    );
+                    if (openMarket) {
+                      marketId = openMarket.marketId || openMarket.id;
+                      marketTitle =
+                        event.title ||
+                        event.metadata?.title ||
+                        "Crypto prediction";
+                      addLogEntry("system", `Found market: ${marketTitle}`);
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (marketId) {
+                const betAmountMicro = Math.floor(betAmount * 1e6); // USDC has 6 decimals
+                console.log(
+                  "Placing bet:",
+                  JSON.stringify({
+                    marketId,
+                    betAmount: betAmountMicro,
+                    isYes: false,
+                  }),
+                );
+                const result = await placePredictionBet(
+                  wallet,
+                  publicKey,
+                  connection,
+                  {
+                    marketId,
+                    isYes: false, // Betting NO as a hedge (downside protection)
+                    amount: betAmountMicro,
+                  },
+                );
+                txHash = result.txid;
+                addLogEntry(
+                  "execute",
+                  `Prediction hedge placed: ${step.action}`,
+                  txHash,
+                );
+              } else {
+                addLogEntry("system", `No open prediction markets found`);
+                await new Promise((r) => setTimeout(r, 1000));
+                txHash = generateMockTxHash();
+                addLogEntry(
+                  "execute",
+                  `${step.action} (simulated — no markets)`,
+                  txHash,
+                );
+              }
             } catch (err) {
               addLogEntry(
                 "system",
@@ -481,39 +535,17 @@ export function AppProvider({ children }) {
             addLogEntry("execute", `${step.action} (simulated)`, txHash);
           }
         } else if (step.type === "hedge" && step.api === "Perps" && publicKey) {
-          const perpAmount = parseFloat(
-            step.action.match(/\$(\d+\.?\d*)/)?.[1] || "0",
+          addLogEntry(
+            "system",
+            `Perps API requires server-side integration (CORS-blocked / WIP)`,
           );
-          const leverageMatch = step.action.match(/(\d+\.?\d*)x/);
-          const leverage = leverageMatch ? parseFloat(leverageMatch[1]) : 2;
-
-          if (perpAmount > 0) {
-            addLogEntry("system", `Opening ${leverage}x short hedge...`);
-            try {
-              const result = await openPerpPosition(
-                "SOL-PERP",
-                "short",
-                Math.floor(perpAmount * 1e6),
-                leverage,
-                publicKey,
-              );
-              txHash = await signAndSendSwap(result, wallet, connection);
-              addLogEntry(
-                "execute",
-                `Perp position opened: ${step.action}`,
-                txHash,
-              );
-            } catch (err) {
-              addLogEntry("system", `Perp position simulated: ${err.message}`);
-              await new Promise((r) => setTimeout(r, 1000));
-              txHash = generateMockTxHash();
-              addLogEntry("execute", `${step.action} (simulated)`, txHash);
-            }
-          } else {
-            await new Promise((r) => setTimeout(r, 1000));
-            txHash = generateMockTxHash();
-            addLogEntry("execute", `${step.action} (simulated)`, txHash);
-          }
+          await new Promise((r) => setTimeout(r, 1000));
+          txHash = generateMockTxHash();
+          addLogEntry(
+            "execute",
+            `${step.action} (simulated — API WIP)`,
+            txHash,
+          );
         } else {
           // Other steps — simulate for now
           await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
