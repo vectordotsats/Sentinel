@@ -1,29 +1,29 @@
-import React from 'react'
-import { AppProvider, useApp } from './context/AppContext'
-import Navbar from './components/Navbar'
-import ConnectPrompt from './components/ConnectPrompt'
-import PortfolioSummary from './components/PortfolioSummary'
-import IdleAssets from './components/IdleAssets'
-import ActivePositions from './components/ActivePositions'
-import StrategyPanel from './components/StrategyPanel'
-import SimulationPanel from './components/SimulationPanel'
-import KaminoVaults from './components/KaminoVaults'
-import ExecutionLog from './components/ExecutionLog'
-import SolPrice from './components/SolPrice'
+import React from "react";
+import { AppProvider, useApp } from "./context/AppContext";
+import Navbar from "./components/Navbar";
+import ConnectPrompt from "./components/ConnectPrompt";
+import PortfolioSummary from "./components/PortfolioSummary";
+import IdleAssets from "./components/IdleAssets";
+import ActivePositions from "./components/ActivePositions";
+import StrategyPanel from "./components/StrategyPanel";
+import SimulationPanel from "./components/SimulationPanel";
+import KaminoVaults from "./components/KaminoVaults";
+import ExecutionLog from "./components/ExecutionLog";
+import SolPrice from "./components/SolPrice";
 
 function Dashboard() {
-  const { connected } = useApp()
+  const { connected } = useApp();
 
-  if (!connected) return <ConnectPrompt />
+  if (!connected) return <ConnectPrompt />;
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
       <PortfolioSummary />
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 grid-cols-1 lg:grid-cols-3">
         {/* Left column */}
-        <div className="space-y-5 lg:col-span-2">
-          <div className="grid gap-5 md:grid-cols-2">
+        <div className="space-y-5 lg:col-span-2 min-w-0">
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2">
             <IdleAssets />
             <ActivePositions />
           </div>
@@ -32,7 +32,7 @@ function Dashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-5">
+        <div className="space-y-5 min-w-0">
           <SolPrice />
           <StrategyPanel />
           <ExecutionLog />
@@ -43,7 +43,7 @@ function Dashboard() {
         Sentinel · DeFi Portfolio Manager · Solana Mainnet
       </footer>
     </div>
-  )
+  );
 }
 
 export default function App() {
@@ -54,5 +54,5 @@ export default function App() {
         <Dashboard />
       </div>
     </AppProvider>
-  )
+  );
 }

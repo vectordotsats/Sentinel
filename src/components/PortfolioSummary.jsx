@@ -39,7 +39,7 @@ export default function PortfolioSummary() {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map(({ label, value, icon: Icon, color, textColor, isCount }) => (
         <div
           key={label}
@@ -51,7 +51,9 @@ export default function PortfolioSummary() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-sentinel-muted">{label}</p>
-              <p className={`mt-1 text-xl font-bold font-mono ${textColor}`}>
+              <p
+                className={`mt-1 text-lg sm:text-xl font-bold font-mono ${textColor}`}
+              >
                 {isCount
                   ? value
                   : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}

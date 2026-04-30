@@ -15,7 +15,7 @@ export default function Navbar() {
           <img
             src="/images/Sentinel-logo.png"
             alt="Sentinel"
-            className="h-[7%] w-[7%] rounded-lg"
+            className="h-8 w-8 rounded-lg object-contain"
           />
           <div>
             <h1 className="text-lg font-bold text-sentinel-textBright tracking-tight uppercase tracking-widest">
