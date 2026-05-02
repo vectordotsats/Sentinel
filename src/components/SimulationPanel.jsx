@@ -143,17 +143,15 @@ export default function SimulationPanel() {
                       {step.detail}
                     </p>
                     {step.txHash && (
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <a>
-                          {" "}
-                          href={`https://solscan.io/tx/${step.txHash}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-[10px]
-                          font-mono text-sentinel-success hover:underline" tx:{" "}
-                          {step.txHash.slice(0, 8)}...{step.txHash.slice(-4)}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
+                      <a
+                        href={`https://solscan.io/tx/${step.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-mono text-sentinel-success hover:underline"
+                      >
+                        tx: {step.txHash.slice(0, 8)}...{step.txHash.slice(-4)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     )}
                   </div>
                 </div>
